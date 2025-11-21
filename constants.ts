@@ -1,0 +1,131 @@
+import { Assignment, AssignmentStatus, Course, CourseId, StudySession, UserStats } from './types';
+
+export const INITIAL_COURSES: Course[] = [
+  {
+    id: CourseId.ALGEBRA,
+    name: 'Algebra 1',
+    color: 'bg-blue-500',
+    bg: 'bg-blue-50',
+    text: 'text-blue-700',
+    border: 'border-blue-200',
+    totalHoursTarget: 100,
+    hoursCompleted: 45,
+    totalAssignments: 8,
+    completedAssignments: 4,
+    nextExamDate: '2025-12-20'
+  },
+  {
+    id: CourseId.ALGORITHMS,
+    name: 'Algorithms',
+    color: 'bg-orange-500',
+    bg: 'bg-orange-50',
+    text: 'text-orange-700',
+    border: 'border-orange-200',
+    totalHoursTarget: 120,
+    hoursCompleted: 30,
+    totalAssignments: 6,
+    completedAssignments: 1,
+    nextExamDate: '2026-01-15'
+  },
+  {
+    id: CourseId.COMPLEXITY,
+    name: 'Complexity Intro',
+    color: 'bg-emerald-500',
+    bg: 'bg-emerald-50',
+    text: 'text-emerald-700',
+    border: 'border-emerald-200',
+    totalHoursTarget: 100,
+    hoursCompleted: 35,
+    totalAssignments: 7,
+    completedAssignments: 5,
+  },
+  {
+    id: CourseId.CPP,
+    name: 'C++ / Python',
+    color: 'bg-purple-500',
+    bg: 'bg-purple-50',
+    text: 'text-purple-700',
+    border: 'border-purple-200',
+    totalHoursTarget: 80,
+    hoursCompleted: 25,
+    totalAssignments: 6,
+    completedAssignments: 2,
+  }
+];
+
+export const INITIAL_ASSIGNMENTS: Assignment[] = [
+  {
+    id: '1',
+    courseId: CourseId.ALGEBRA,
+    name: 'Maman 11: Vector Spaces',
+    dueDate: '2025-11-10T23:59:00',
+    estimatedHours: 12,
+    status: AssignmentStatus.COMPLETED,
+  },
+  {
+    id: '2',
+    courseId: CourseId.ALGORITHMS,
+    name: 'Maman 12: Graph Theory',
+    dueDate: '2025-11-15T23:59:00',
+    estimatedHours: 15,
+    status: AssignmentStatus.IN_PROGRESS,
+  },
+  {
+    id: '3',
+    courseId: CourseId.CPP,
+    name: 'Project 1: Pointers',
+    dueDate: '2025-11-18T23:59:00',
+    estimatedHours: 8,
+    status: AssignmentStatus.NOT_STARTED,
+  },
+  {
+    id: '4',
+    courseId: CourseId.COMPLEXITY,
+    name: 'Maman 13: P vs NP',
+    dueDate: '2025-11-25T23:59:00',
+    estimatedHours: 10,
+    status: AssignmentStatus.NOT_STARTED,
+  },
+  {
+    id: '5',
+    courseId: CourseId.ALGEBRA,
+    name: 'Maman 12: Linear Maps',
+    dueDate: '2025-12-01T23:59:00',
+    estimatedHours: 14,
+    status: AssignmentStatus.NOT_STARTED,
+  }
+];
+
+export const INITIAL_SESSIONS: StudySession[] = [
+  {
+    id: 's1',
+    courseId: CourseId.ALGEBRA,
+    startTime: '2025-11-01T10:00:00',
+    durationSeconds: 3600,
+    date: '2025-11-01'
+  },
+  {
+    id: 's2',
+    courseId: CourseId.ALGORITHMS,
+    startTime: '2025-11-02T14:00:00',
+    durationSeconds: 7200,
+    date: '2025-11-02'
+  },
+  {
+    id: 's3',
+    courseId: CourseId.ALGEBRA,
+    startTime: '2025-11-03T09:00:00',
+    durationSeconds: 5400,
+    date: '2025-11-03'
+  }
+];
+
+export const INITIAL_USER_STATS: UserStats = {
+  streakDays: 15,
+  totalSemesterHours: 135,
+  weeklyHours: 18.5,
+  weeklyTarget: 28,
+  currentPhase: 1,
+  phaseName: "Assignment Sprint",
+  phaseProgress: 73
+};

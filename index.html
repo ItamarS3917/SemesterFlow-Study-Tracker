@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SemesterFlow</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <!-- PDF.js for reading PDF files client-side -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+      // Initialize PDF.js worker
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              mono: ['Space Mono', 'monospace'],
+            },
+            colors: {
+              retro: {
+                bg: '#111827', // gray-900
+                card: '#1f2937', // gray-800
+                dark: '#000000',
+                light: '#f3f4f6',
+                purple: '#a78bfa',
+                blue: '#60a5fa',
+                green: '#4ade80',
+                yellow: '#facc15',
+                red: '#f87171',
+                accent: '#6366f1' // Indigo-500
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body {
+        font-family: 'Inter', sans-serif;
+        background-color: #111827; /* Gray 900 */
+        color: #f3f4f6; /* Gray 100 */
+      }
+      
+      /* Retro Grid Background - Dark Mode */
+      .bg-dots {
+        background-color: #111827;
+        background-image: radial-gradient(#374151 1px, transparent 1px); /* Gray 700 dots */
+        background-size: 20px 20px;
+      }
+
+      /* Retro Card Style (Dark Neo-Brutalism) */
+      .retro-card {
+        background: #1f2937; /* Gray 800 */
+        border: 2px solid #000000;
+        box-shadow: 4px 4px 0px 0px #000000; /* Black shadow */
+        border-radius: 12px;
+        transition: all 0.2s ease;
+        color: #f3f4f6;
+      }
+      
+      /* Retro Button */
+      .retro-btn {
+        border: 2px solid #000000;
+        box-shadow: 3px 3px 0px 0px #000000;
+        transition: all 0.1s ease;
+        font-weight: 700;
+      }
+      .retro-btn:active {
+        transform: translate(2px, 2px);
+        box-shadow: 0px 0px 0px 0px #000000;
+      }
+      .retro-btn:hover {
+        transform: translate(-1px, -1px);
+        box-shadow: 5px 5px 0px 0px #000000;
+      }
+
+      /* Input Fields - Dark Mode */
+      .retro-input {
+        background-color: #374151; /* Gray 700 */
+        border: 2px solid #4b5563; /* Gray 600 */
+        color: white;
+        transition: all 0.2s;
+      }
+      .retro-input:focus {
+        border-color: #818cf8; /* Indigo 400 */
+        box-shadow: 4px 4px 0px 0px #000000;
+        outline: none;
+      }
+      
+      /* Overrides for standard inputs to look retro-dark */
+      input, select, textarea {
+        background-color: #374151 !important;
+        border-color: #4b5563 !important;
+        color: #fff !important;
+      }
+      input::placeholder, textarea::placeholder {
+        color: #9ca3af !important;
+      }
+
+      /* Custom scrollbar for cleaner look */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #111827;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #4b5563;
+        border-radius: 4px;
+        border: 2px solid #111827;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #6b7280;
+      }
+      
+      .animate-fade-in {
+        animation: fadeIn 0.3s ease-in-out;
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(5px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      /* Utility for hiding scrollbar */
+      .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+      }
+      .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "recharts": "https://aistudiocdn.com/recharts@^3.4.1",
+    "@google/genai": "https://esm.run/@google/genai"
+  }
+}
+</script>
+</head>
+  <body class="bg-dots text-gray-100">
+    <div id="root"></div>
+  </body>
+</html>
