@@ -9,16 +9,15 @@ import {
   Menu, 
   X, 
   Bell,
-  CheckCircle,
-  Clock,
-  ChevronRight,
   Flame,
   Settings as SettingsIcon,
   BrainCircuit,
-  Bot
+  Bot,
+  LogOut,
+  Clock
 } from 'lucide-react';
 import { Course, Assignment, StudySession, UserStats, ViewState, AssignmentStatus } from './types';
-import { INITIAL_COURSES, INITIAL_ASSIGNMENTS, INITIAL_SESSIONS, INITIAL_USER_STATS } from './constants';
+import { INITIAL_USER_STATS } from './constants';
 import { StudyTimer } from './components/StudyTimer';
 import { Analytics } from './components/Analytics';
 import { ChatBot } from './components/ChatBot';
@@ -28,72 +27,109 @@ import { PlannerView } from './components/PlannerView';
 import { CoursesView } from './components/CoursesView';
 import { ProcrastinationWidget } from './components/ProcrastinationWidget';
 import { StudyPartner } from './components/StudyPartner';
+import { LoginPage } from './components/LoginPage';
 
-const App = () => {
-  // State Management
+// Auth & Firebase
+import { useAuth } from './contexts/AuthContext';
+import * as FirestoreService from './services/firestore';
+
+const AppContent = () => {
+  const { user, logout } = useAuth();
+  
+  // State Management (Data comes from Firestore now)
   const [activeView, setActiveView] = useState<ViewState>('DASHBOARD');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   // Timer Quick Start State
   const [timerInitData, setTimerInitData] = useState<{ courseId?: string, topic?: string }>({});
   
-  // Data State (Simulated "Backend")
-  const [courses, setCourses] = useState<Course[]>(INITIAL_COURSES);
-  const [assignments, setAssignments] = useState<Assignment[]>(INITIAL_ASSIGNMENTS);
-  const [sessions, setSessions] = useState<StudySession[]>(INITIAL_SESSIONS);
+  // Data State
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [sessions, setSessions] = useState<StudySession[]>([]);
   const [userStats, setUserStats] = useState<UserStats>(INITIAL_USER_STATS);
 
-  // --- CRUD Actions ---
+  // --- FIRESTORE SUBSCRIPTIONS ---
+  useEffect(() => {
+    if (!user) return;
 
-  const handleAddCourse = (newCourse: Course) => {
-    setCourses(prev => [...prev, newCourse]);
+    const unsubCourses = FirestoreService.subscribeToCourses(user.uid, setCourses);
+    const unsubAssignments = FirestoreService.subscribeToAssignments(user.uid, setAssignments);
+    const unsubSessions = FirestoreService.subscribeToSessions(user.uid, setSessions);
+    const unsubStats = FirestoreService.subscribeToUserStats(user.uid, setUserStats);
+
+    return () => {
+      unsubCourses();
+      unsubAssignments();
+      unsubSessions();
+      unsubStats();
+    };
+  }, [user]);
+
+
+  // --- CRUD Actions (Proxied to Firestore) ---
+
+  const handleAddCourse = async (newCourse: Course) => {
+    if(user) await FirestoreService.addCourseToDB(user.uid, newCourse);
   };
 
-  const handleUpdateCourse = (updatedCourse: Course) => {
-    setCourses(prev => prev.map(c => c.id === updatedCourse.id ? updatedCourse : c));
+  const handleUpdateCourse = async (updatedCourse: Course) => {
+    if(user) await FirestoreService.updateCourseInDB(user.uid, updatedCourse);
   };
 
-  const handleUpdateCourseWeakness = (courseId: string, concepts: string[]) => {
-    setCourses(prev => prev.map(c => 
-        c.id === courseId ? { ...c, weakConcepts: concepts } : c
-    ));
-  };
-
-  const handleDeleteCourse = (id: string) => {
-    if (window.confirm("Are you sure you want to delete this course? This will likely break analytics for existing sessions linked to it.")) {
-      setCourses(prev => prev.filter(c => c.id !== id));
-      // Optional: Delete associated assignments
-      setAssignments(prev => prev.filter(a => a.courseId !== id));
+  const handleUpdateCourseWeakness = async (courseId: string, concepts: string[]) => {
+    if(!user) return;
+    const course = courses.find(c => c.id === courseId);
+    if (course) {
+       await FirestoreService.updateCourseInDB(user.uid, { ...course, weakConcepts: concepts });
     }
   };
 
-  const handleAddAssignment = (newAssignment: Assignment) => {
-    // Ensure createdAt is set if not provided (though AssignmentsView should set it, safe to double check)
+  const handleDeleteCourse = async (id: string) => {
+    if (window.confirm("Are you sure you want to delete this course?")) {
+      if(user) await FirestoreService.deleteCourseFromDB(user.uid, id);
+    }
+  };
+
+  const handleAddAssignment = async (newAssignment: Assignment) => {
+    if(!user) return;
     const assignmentWithDate = {
         ...newAssignment,
         createdAt: newAssignment.createdAt || new Date().toISOString()
     };
-    setAssignments(prev => [...prev, assignmentWithDate]);
-    // Update course total assignments count
-    setCourses(curr => curr.map(c => 
-        c.id === newAssignment.courseId ? {...c, totalAssignments: c.totalAssignments + 1} : c
-    ));
-  };
+    await FirestoreService.addAssignmentToDB(user.uid, assignmentWithDate);
 
-  const handleDeleteAssignment = (id: string) => {
-    const assignment = assignments.find(a => a.id === id);
-    if (assignment) {
-        setAssignments(prev => prev.filter(a => a.id !== id));
-        // Update course count
-        setCourses(curr => curr.map(c => 
-            c.id === assignment.courseId ? {...c, totalAssignments: Math.max(0, c.totalAssignments - 1)} : c
-        ));
+    // Update course count locally for UI (optional, as stats are derived mostly)
+    // But we should update the course document to keep sync
+    const course = courses.find(c => c.id === newAssignment.courseId);
+    if (course) {
+        await FirestoreService.updateCourseInDB(user.uid, {
+            ...course,
+            totalAssignments: course.totalAssignments + 1
+        });
     }
   };
 
-  const handleSaveSession = (courseId: string, durationSeconds: number, notes: string, addToKnowledge: boolean, topic: string = 'General', difficulty: number = 3) => {
+  const handleDeleteAssignment = async (id: string) => {
+    if(!user) return;
+    const assignment = assignments.find(a => a.id === id);
+    if (assignment) {
+        await FirestoreService.deleteAssignmentFromDB(user.uid, id);
+        const course = courses.find(c => c.id === assignment.courseId);
+        if(course) {
+             await FirestoreService.updateCourseInDB(user.uid, {
+                ...course,
+                totalAssignments: Math.max(0, course.totalAssignments - 1)
+            });
+        }
+    }
+  };
+
+  const handleSaveSession = async (courseId: string, durationSeconds: number, notes: string, addToKnowledge: boolean, topic: string = 'General', difficulty: number = 3) => {
+    if(!user) return;
+
     const newSession: StudySession = {
-      id: Date.now().toString(),
+      id: Date.now().toString(), // Will be ignored by addDoc
       courseId,
       startTime: new Date().toISOString(),
       durationSeconds,
@@ -103,67 +139,58 @@ const App = () => {
       difficulty
     };
 
-    setSessions(prev => [newSession, ...prev]);
-
-    // Update Course Hours & Optionally Knowledge Base
-    setCourses(prevCourses => prevCourses.map(course => {
-      if (course.id === courseId) {
+    // Calculate updates
+    const course = courses.find(c => c.id === courseId);
+    if (course) {
         const hoursToAdd = durationSeconds / 3600;
         let updatedKnowledge = course.knowledge || '';
-        
-        // If user wants to add these notes to the knowledge base for future AI context
         if (addToKnowledge && notes.trim()) {
             const today = new Date().toLocaleDateString();
             updatedKnowledge += `\n\n[Study Session Log - ${today} - ${topic}]:\n${notes}`;
         }
 
-        return { 
-            ...course, 
+        const updatedCourse = {
+            ...course,
             hoursCompleted: parseFloat((course.hoursCompleted + hoursToAdd).toFixed(1)),
             knowledge: updatedKnowledge
         };
-      }
-      return course;
-    }));
 
-    // Update User Stats
-    setUserStats(prev => ({
-      ...prev,
-      totalSemesterHours: parseFloat((prev.totalSemesterHours + (durationSeconds / 3600)).toFixed(1))
-    }));
+        const updatedStats = {
+            ...userStats,
+            totalSemesterHours: parseFloat((userStats.totalSemesterHours + hoursToAdd).toFixed(1))
+        };
+
+        // Save all atomically (simulated)
+        await FirestoreService.saveSessionTransaction(user.uid, newSession, updatedCourse, updatedStats);
+    }
     
-    // Reset timer init data
     setTimerInitData({});
   };
 
-  const toggleAssignmentStatus = (id: string) => {
-    setAssignments(prev => prev.map(a => {
-      if (a.id === id) {
+  const toggleAssignmentStatus = async (id: string) => {
+    if(!user) return;
+    const a = assignments.find(item => item.id === id);
+    if (a) {
         const newStatus = a.status === AssignmentStatus.COMPLETED 
           ? AssignmentStatus.IN_PROGRESS 
           : AssignmentStatus.COMPLETED;
         
         let startedAt = a.startedAt;
-        // If moving to IN_PROGRESS for the first time (and previously null), set startedAt
         if (newStatus === AssignmentStatus.IN_PROGRESS && !a.startedAt) {
             startedAt = new Date().toISOString();
         }
 
-        // Update course completed assignments count
-        if (newStatus === AssignmentStatus.COMPLETED) {
-           setCourses(curr => curr.map(c => 
-             c.id === a.courseId ? {...c, completedAssignments: c.completedAssignments + 1} : c
-           ));
-        } else {
-           setCourses(curr => curr.map(c => 
-             c.id === a.courseId ? {...c, completedAssignments: c.completedAssignments - 1} : c
-           ));
+        await FirestoreService.updateAssignmentInDB(user.uid, { ...a, status: newStatus, startedAt });
+
+        const course = courses.find(c => c.id === a.courseId);
+        if (course) {
+            const change = newStatus === AssignmentStatus.COMPLETED ? 1 : -1;
+            await FirestoreService.updateCourseInDB(user.uid, {
+                ...course,
+                completedAssignments: Math.max(0, course.completedAssignments + change)
+            });
         }
-        
-        return { ...a, status: newStatus, startedAt };
-      }
-      return a;
-    }));
+    }
   };
 
   const handleBreakPattern = (courseId: string, assignmentName: string) => {
@@ -174,7 +201,7 @@ const App = () => {
       setActiveView('TIMER');
   };
 
-  // --- UI Components ---
+  // --- UI Components (Keep existing) ---
 
   const NavItem = ({ view, icon: Icon, label }: { view: ViewState, icon: any, label: string }) => (
     <button
@@ -222,7 +249,7 @@ const App = () => {
             </div>
             <h3 className="text-2xl font-bold text-white font-mono">{userStats.weeklyHours}<span className="text-gray-500 text-lg">/</span>{userStats.weeklyTarget}h</h3>
             <div className="w-full bg-gray-700 h-3 mt-4 border-2 border-black rounded-full overflow-hidden">
-              <div className="bg-orange-500 h-full border-r-2 border-black" style={{ width: `${(userStats.weeklyHours / userStats.weeklyTarget) * 100}%` }}></div>
+              <div className="bg-orange-500 h-full border-r-2 border-black" style={{ width: `${Math.min(100, (userStats.weeklyHours / userStats.weeklyTarget) * 100)}%` }}></div>
             </div>
           </div>
 
@@ -330,10 +357,11 @@ const App = () => {
                                 <span className="text-[10px] font-mono text-gray-600">{course.hoursCompleted}h</span>
                             </div>
                              <div className="w-full bg-gray-700 h-1.5 border border-black rounded-full overflow-hidden">
-                                <div className={`${course.color} h-full border-r border-black`} style={{ width: `${(course.hoursCompleted / course.totalHoursTarget) * 100}%` }}></div>
+                                <div className={`${course.color} h-full border-r border-black`} style={{ width: `${Math.min(100, (course.hoursCompleted / course.totalHoursTarget) * 100)}%` }}></div>
                              </div>
                         </div>
                     ))}
+                    {courses.length === 0 && <div className="text-xs text-gray-500 font-mono">No courses found. Add one in settings!</div>}
                 </div>
              </div>
           </div>
@@ -366,6 +394,15 @@ const App = () => {
           <NavItem view="ANALYTICS" icon={ChartIcon} label="ANALYTICS" />
           <div className="pt-6 mt-6 border-t-2 border-gray-800">
             <NavItem view="SETTINGS" icon={SettingsIcon} label="SETTINGS" />
+            <button
+              onClick={() => {
+                  if(window.confirm("Logout?")) logout();
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all border-2 border-transparent text-red-400 hover:bg-gray-800 hover:text-red-300"
+            >
+              <LogOut className="w-5 h-5 stroke-2" />
+              <span className="font-mono text-sm">LOGOUT</span>
+            </button>
           </div>
         </nav>
 
@@ -406,6 +443,7 @@ const App = () => {
           <NavItem view="TIMER" icon={Timer} label="TIMER" />
           <NavItem view="ANALYTICS" icon={ChartIcon} label="ANALYTICS" />
           <NavItem view="SETTINGS" icon={SettingsIcon} label="SETTINGS" />
+          <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-3 text-red-400"><LogOut className="w-5 h-5"/> LOGOUT</button>
         </nav>
       </aside>
 
@@ -426,8 +464,8 @@ const App = () => {
               <Bell className="w-6 h-6" />
               <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 border-2 border-gray-900 rounded-full"></span>
             </button>
-            <div className="w-10 h-10 bg-yellow-400 border-2 border-black flex items-center justify-center text-black font-black text-sm shadow-[2px_2px_0px_0px_#000]">
-              JD
+            <div className="w-10 h-10 overflow-hidden bg-yellow-400 border-2 border-black flex items-center justify-center text-black font-black text-sm shadow-[2px_2px_0px_0px_#000]">
+              {user?.photoURL ? <img src={user.photoURL} alt="User" className="w-full h-full object-cover"/> : "ME"}
             </div>
           </div>
         </header>
@@ -492,6 +530,23 @@ const App = () => {
       </main>
     </div>
   );
+};
+
+// Wrapper to handle global auth state
+const App = () => {
+  const { user, loading } = useAuth();
+
+  if (loading) return (
+     <div className="min-h-screen bg-dots flex flex-col items-center justify-center text-white">
+        <div className="retro-card p-6 text-center border-indigo-500">
+            <p className="font-mono text-xl font-black uppercase">System Booting...</p>
+        </div>
+     </div>
+  );
+
+  if (!user) return <LoginPage />;
+
+  return <AppContent />;
 };
 
 export default App;
