@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, 
@@ -13,7 +14,8 @@ import {
   ChevronRight,
   Flame,
   Settings as SettingsIcon,
-  BrainCircuit
+  BrainCircuit,
+  Bot
 } from 'lucide-react';
 import { Course, Assignment, StudySession, UserStats, ViewState, AssignmentStatus } from './types';
 import { INITIAL_COURSES, INITIAL_ASSIGNMENTS, INITIAL_SESSIONS, INITIAL_USER_STATS } from './constants';
@@ -24,11 +26,16 @@ import { SettingsView } from './components/SettingsView';
 import { AssignmentsView } from './components/AssignmentsView';
 import { PlannerView } from './components/PlannerView';
 import { CoursesView } from './components/CoursesView';
+import { ProcrastinationWidget } from './components/ProcrastinationWidget';
+import { StudyPartner } from './components/StudyPartner';
 
 const App = () => {
   // State Management
   const [activeView, setActiveView] = useState<ViewState>('DASHBOARD');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  // Timer Quick Start State
+  const [timerInitData, setTimerInitData] = useState<{ courseId?: string, topic?: string }>({});
   
   // Data State (Simulated "Backend")
   const [courses, setCourses] = useState<Course[]>(INITIAL_COURSES);
@@ -46,6 +53,12 @@ const App = () => {
     setCourses(prev => prev.map(c => c.id === updatedCourse.id ? updatedCourse : c));
   };
 
+  const handleUpdateCourseWeakness = (courseId: string, concepts: string[]) => {
+    setCourses(prev => prev.map(c => 
+        c.id === courseId ? { ...c, weakConcepts: concepts } : c
+    ));
+  };
+
   const handleDeleteCourse = (id: string) => {
     if (window.confirm("Are you sure you want to delete this course? This will likely break analytics for existing sessions linked to it.")) {
       setCourses(prev => prev.filter(c => c.id !== id));
@@ -55,7 +68,12 @@ const App = () => {
   };
 
   const handleAddAssignment = (newAssignment: Assignment) => {
-    setAssignments(prev => [...prev, newAssignment]);
+    // Ensure createdAt is set if not provided (though AssignmentsView should set it, safe to double check)
+    const assignmentWithDate = {
+        ...newAssignment,
+        createdAt: newAssignment.createdAt || new Date().toISOString()
+    };
+    setAssignments(prev => [...prev, assignmentWithDate]);
     // Update course total assignments count
     setCourses(curr => curr.map(c => 
         c.id === newAssignment.courseId ? {...c, totalAssignments: c.totalAssignments + 1} : c
@@ -73,14 +91,16 @@ const App = () => {
     }
   };
 
-  const handleSaveSession = (courseId: string, durationSeconds: number, notes: string, addToKnowledge: boolean) => {
+  const handleSaveSession = (courseId: string, durationSeconds: number, notes: string, addToKnowledge: boolean, topic: string = 'General', difficulty: number = 3) => {
     const newSession: StudySession = {
       id: Date.now().toString(),
       courseId,
       startTime: new Date().toISOString(),
       durationSeconds,
       notes,
-      date: new Date().toISOString().split('T')[0]
+      date: new Date().toISOString().split('T')[0],
+      topic,
+      difficulty
     };
 
     setSessions(prev => [newSession, ...prev]);
@@ -94,7 +114,7 @@ const App = () => {
         // If user wants to add these notes to the knowledge base for future AI context
         if (addToKnowledge && notes.trim()) {
             const today = new Date().toLocaleDateString();
-            updatedKnowledge += `\n\n[Study Session Log - ${today}]:\n${notes}`;
+            updatedKnowledge += `\n\n[Study Session Log - ${today} - ${topic}]:\n${notes}`;
         }
 
         return { 
@@ -111,6 +131,9 @@ const App = () => {
       ...prev,
       totalSemesterHours: parseFloat((prev.totalSemesterHours + (durationSeconds / 3600)).toFixed(1))
     }));
+    
+    // Reset timer init data
+    setTimerInitData({});
   };
 
   const toggleAssignmentStatus = (id: string) => {
@@ -120,6 +143,12 @@ const App = () => {
           ? AssignmentStatus.IN_PROGRESS 
           : AssignmentStatus.COMPLETED;
         
+        let startedAt = a.startedAt;
+        // If moving to IN_PROGRESS for the first time (and previously null), set startedAt
+        if (newStatus === AssignmentStatus.IN_PROGRESS && !a.startedAt) {
+            startedAt = new Date().toISOString();
+        }
+
         // Update course completed assignments count
         if (newStatus === AssignmentStatus.COMPLETED) {
            setCourses(curr => curr.map(c => 
@@ -131,10 +160,18 @@ const App = () => {
            ));
         }
         
-        return { ...a, status: newStatus };
+        return { ...a, status: newStatus, startedAt };
       }
       return a;
     }));
+  };
+
+  const handleBreakPattern = (courseId: string, assignmentName: string) => {
+      setTimerInitData({
+          courseId,
+          topic: `Micro-Sprint: ${assignmentName}`
+      });
+      setActiveView('TIMER');
   };
 
   // --- UI Components ---
@@ -209,102 +246,96 @@ const App = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Upcoming Assignments */}
-          <div className="lg:col-span-2 retro-card p-6">
-            <div className="flex items-center justify-between mb-6 border-b-2 border-gray-700 pb-4">
-              <h3 className="text-xl font-black text-white font-mono flex items-center gap-2">
-                <CalendarCheck className="w-6 h-6 text-indigo-400" />
-                Upcoming Deadlines
-              </h3>
-              <button onClick={() => setActiveView('ASSIGNMENTS')} className="text-sm font-bold text-indigo-400 hover:text-indigo-300 font-mono">VIEW ALL</button>
-            </div>
-            <div className="space-y-4">
-              {upcomingAssignments.map(assignment => {
-                const course = courses.find(c => c.id === assignment.courseId);
-                const daysLeft = Math.ceil((new Date(assignment.dueDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24));
-                return (
-                  <div key={assignment.id} className="flex items-center p-4 bg-gray-800 border-2 border-gray-700 hover:border-indigo-500 rounded-lg transition-all hover:translate-x-1 group">
-                    <div className={`w-2 h-12 ${course?.color || 'bg-gray-600'} border-2 border-black mr-4 shadow-[2px_2px_0px_0px_#000]`}></div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 border border-black shadow-[1px_1px_0px_0px_#000] bg-gray-700 text-gray-200`}>
-                          {course?.name}
-                        </span>
-                        {daysLeft <= 3 && <span className="text-[10px] font-bold bg-red-600 text-white px-2 py-0.5 border border-black">DUE SOON</span>}
-                      </div>
-                      <h4 className="font-bold text-white text-sm">{assignment.name}</h4>
+          <div className="lg:col-span-2 space-y-6">
+             {/* Procrastination Widget (New Feature) */}
+             <ProcrastinationWidget 
+                assignments={assignments}
+                courses={courses}
+                onBreakPattern={handleBreakPattern}
+             />
+
+             {/* Upcoming Assignments */}
+             <div className="retro-card p-6">
+                <div className="flex items-center justify-between mb-6 border-b-2 border-gray-700 pb-4">
+                <h3 className="text-xl font-black text-white font-mono flex items-center gap-2">
+                    <CalendarCheck className="w-6 h-6 text-indigo-400" />
+                    Upcoming Deadlines
+                </h3>
+                <button onClick={() => setActiveView('ASSIGNMENTS')} className="text-sm font-bold text-indigo-400 hover:text-indigo-300 font-mono">VIEW ALL</button>
+                </div>
+                <div className="space-y-4">
+                {upcomingAssignments.map(assignment => {
+                    const course = courses.find(c => c.id === assignment.courseId);
+                    const daysLeft = Math.ceil((new Date(assignment.dueDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24));
+                    return (
+                    <div key={assignment.id} className="flex items-center p-4 bg-gray-800 border-2 border-gray-700 hover:border-indigo-500 rounded-lg transition-all hover:translate-x-1 group">
+                        <div className={`w-2 h-12 ${course?.color || 'bg-gray-600'} border-2 border-black mr-4 shadow-[2px_2px_0px_0px_#000]`}></div>
+                        <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                            <span className={`text-[10px] font-black uppercase px-2 py-0.5 border border-black shadow-[1px_1px_0px_0px_#000] bg-gray-700 text-gray-200`}>
+                            {course?.name}
+                            </span>
+                            {daysLeft <= 3 && <span className="text-[10px] font-bold bg-red-600 text-white px-2 py-0.5 border border-black">DUE SOON</span>}
+                        </div>
+                        <h4 className="font-bold text-white text-sm">{assignment.name}</h4>
+                        </div>
+                        <div className="text-right font-mono">
+                        <div className={`text-lg font-bold ${daysLeft <= 3 ? 'text-red-400' : 'text-gray-400'}`}>
+                            {daysLeft}d
+                        </div>
+                        <div className="text-[10px] text-gray-500 uppercase">{new Date(assignment.dueDate).toLocaleDateString()}</div>
+                        </div>
                     </div>
-                    <div className="text-right font-mono">
-                      <div className={`text-lg font-bold ${daysLeft <= 3 ? 'text-red-400' : 'text-gray-400'}`}>
-                        {daysLeft}d
-                      </div>
-                      <div className="text-[10px] text-gray-500 uppercase">{new Date(assignment.dueDate).toLocaleDateString()}</div>
-                    </div>
-                  </div>
-                );
-              })}
-              {upcomingAssignments.length === 0 && (
-                <div className="text-center py-10 text-gray-500 font-mono">No active assignments. Chill out. 🏖️</div>
-              )}
+                    );
+                })}
+                {upcomingAssignments.length === 0 && (
+                    <div className="text-center py-10 text-gray-500 font-mono">No active assignments. Chill out. 🏖️</div>
+                )}
+                </div>
             </div>
           </div>
 
-          {/* Quick Timer Start */}
-          <div className="retro-card bg-indigo-700 text-white p-6 flex flex-col justify-between relative overflow-hidden shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] border-indigo-900">
-            <div className="absolute top-0 right-0 p-4 opacity-20">
-               <Timer className="w-32 h-32 text-indigo-950" />
+          <div className="flex flex-col gap-6">
+            {/* Quick Timer Start */}
+            <div className="retro-card bg-indigo-700 text-white p-6 flex flex-col justify-between relative overflow-hidden shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] border-indigo-900">
+                <div className="absolute top-0 right-0 p-4 opacity-20">
+                <Timer className="w-32 h-32 text-indigo-950" />
+                </div>
+                <div className="relative z-10">
+                <div className="w-12 h-1 bg-white mb-4"></div>
+                <h3 className="text-2xl font-black font-mono mb-2">FOCUS MODE</h3>
+                <p className="text-indigo-100 text-sm mb-8 font-medium">Initialize study sequence. Track progress.</p>
+                
+                <button 
+                    onClick={() => setActiveView('TIMER')}
+                    className="w-full bg-white text-black border-2 border-black font-bold py-3 px-4 retro-btn flex items-center justify-center gap-2 hover:bg-gray-100"
+                >
+                    <Timer className="w-5 h-5" />
+                    START TIMER
+                </button>
+                </div>
             </div>
-            <div className="relative z-10">
-              <div className="w-12 h-1 bg-white mb-4"></div>
-              <h3 className="text-2xl font-black font-mono mb-2">FOCUS MODE</h3>
-              <p className="text-indigo-100 text-sm mb-8 font-medium">Initialize study sequence. Track progress.</p>
-              
-              <button 
-                onClick={() => setActiveView('TIMER')}
-                className="w-full bg-white text-black border-2 border-black font-bold py-3 px-4 retro-btn flex items-center justify-center gap-2 hover:bg-gray-100"
-              >
-                <Timer className="w-5 h-5" />
-                START TIMER
-              </button>
-            </div>
-          </div>
-        </div>
 
-        {/* Course Overview Cards */}
-        <div>
-          <h3 className="text-xl font-black text-white mb-6 font-mono flex items-center gap-2">
-            <BookOpen className="w-6 h-6 text-emerald-400" />
-            Course Load
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {courses.map(course => (
-              <div key={course.id} className="retro-card p-4 hover:border-indigo-500 cursor-pointer group">
-                <div className="flex justify-between items-start mb-4">
-                  <div className={`w-10 h-10 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] ${course.color} flex items-center justify-center text-black`}>
-                    <span className="font-bold text-lg font-mono">{course.name.substring(0,1)}</span>
-                  </div>
-                  {course.nextExamDate && (
-                    <div className="text-[10px] font-bold bg-red-900/50 text-red-400 px-2 py-1 border border-red-900 rounded-sm">
-                      EXAM: {new Date(course.nextExamDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric'})}
-                    </div>
-                  )}
+            {/* Course Load Summary */}
+             <div className="retro-card p-4">
+                <h3 className="text-sm font-black text-white mb-4 font-mono flex items-center gap-2 uppercase border-b-2 border-black pb-2">
+                    <BookOpen className="w-4 h-4 text-emerald-400" />
+                    Subject Load
+                </h3>
+                <div className="space-y-3">
+                    {courses.slice(0, 4).map(course => (
+                        <div key={course.id} className="group cursor-pointer" onClick={() => setActiveView('COURSES')}>
+                            <div className="flex justify-between items-center mb-1">
+                                <span className="text-xs font-bold text-gray-400 group-hover:text-white">{course.name}</span>
+                                <span className="text-[10px] font-mono text-gray-600">{course.hoursCompleted}h</span>
+                            </div>
+                             <div className="w-full bg-gray-700 h-1.5 border border-black rounded-full overflow-hidden">
+                                <div className={`${course.color} h-full border-r border-black`} style={{ width: `${(course.hoursCompleted / course.totalHoursTarget) * 100}%` }}></div>
+                             </div>
+                        </div>
+                    ))}
                 </div>
-                <h4 className="font-bold text-white mb-1 truncate group-hover:text-indigo-400 transition-colors" title={course.name}>{course.name}</h4>
-                <div className="text-xs font-mono text-gray-400 mb-3">{course.hoursCompleted}/{course.totalHoursTarget} HRS</div>
-                <div className="w-full bg-gray-700 h-2 border border-black rounded-full overflow-hidden">
-                  <div className={`${course.color} h-full border-r border-black`} style={{ width: `${(course.hoursCompleted / course.totalHoursTarget) * 100}%` }}></div>
-                </div>
-              </div>
-            ))}
-            
-            {/* Add Course Placehoder */}
-            <button 
-                onClick={() => setActiveView('SETTINGS')}
-                className="border-2 border-dashed border-gray-700 p-4 rounded-xl flex flex-col items-center justify-center text-gray-500 hover:border-indigo-500 hover:text-indigo-400 hover:bg-gray-800 transition-all"
-            >
-                <SettingsIcon className="w-8 h-8 mb-2" />
-                <span className="text-sm font-bold font-mono uppercase">Manage Courses</span>
-            </button>
+             </div>
           </div>
         </div>
       </div>
@@ -328,6 +359,7 @@ const App = () => {
         <nav className="flex-1 px-4 space-y-3 mt-6">
           <NavItem view="DASHBOARD" icon={LayoutDashboard} label="DASHBOARD" />
           <NavItem view="PLANNER" icon={BrainCircuit} label="AI PLANNER" />
+          <NavItem view="STUDY_PARTNER" icon={Bot} label="STUDY PARTNER" />
           <NavItem view="ASSIGNMENTS" icon={CalendarCheck} label="ASSIGNMENTS" />
           <NavItem view="COURSES" icon={BookOpen} label="MY COURSES" />
           <NavItem view="TIMER" icon={Timer} label="FOCUS TIMER" />
@@ -368,6 +400,7 @@ const App = () => {
         <nav className="px-4 py-4 space-y-2">
           <NavItem view="DASHBOARD" icon={LayoutDashboard} label="DASHBOARD" />
           <NavItem view="PLANNER" icon={BrainCircuit} label="AI PLANNER" />
+          <NavItem view="STUDY_PARTNER" icon={Bot} label="STUDY PARTNER" />
           <NavItem view="ASSIGNMENTS" icon={CalendarCheck} label="ASSIGNMENTS" />
           <NavItem view="COURSES" icon={BookOpen} label="COURSES" />
           <NavItem view="TIMER" icon={Timer} label="TIMER" />
@@ -402,8 +435,27 @@ const App = () => {
         {/* View Content */}
         <div className="p-6 max-w-7xl mx-auto pb-32">
           {activeView === 'DASHBOARD' && <Dashboard />}
-          {activeView === 'PLANNER' && <PlannerView courses={courses} assignments={assignments} />}
-          {activeView === 'TIMER' && <StudyTimer courses={courses} onSaveSession={handleSaveSession} />}
+          {activeView === 'PLANNER' && (
+            <PlannerView 
+                courses={courses} 
+                assignments={assignments} 
+            />
+          )}
+          {activeView === 'STUDY_PARTNER' && (
+            <StudyPartner 
+                courses={courses} 
+                onSaveSession={handleSaveSession}
+                onUpdateCourseWeakness={handleUpdateCourseWeakness}
+            />
+          )}
+          {activeView === 'TIMER' && (
+             <StudyTimer 
+                courses={courses} 
+                onSaveSession={handleSaveSession}
+                initialCourseId={timerInitData.courseId}
+                initialTopic={timerInitData.topic}
+             />
+          )}
           {activeView === 'ASSIGNMENTS' && (
             <AssignmentsView 
               assignments={assignments} 

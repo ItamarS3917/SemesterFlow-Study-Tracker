@@ -1,3 +1,4 @@
+
 import { Assignment, AssignmentStatus, Course, CourseId, StudySession, UserStats } from './types';
 
 export const INITIAL_COURSES: Course[] = [
@@ -12,7 +13,8 @@ export const INITIAL_COURSES: Course[] = [
     hoursCompleted: 45,
     totalAssignments: 8,
     completedAssignments: 4,
-    nextExamDate: '2025-12-20'
+    nextExamDate: '2025-12-20',
+    weakConcepts: ['Eigenvectors', 'Subspaces']
   },
   {
     id: CourseId.ALGORITHMS,
@@ -25,7 +27,8 @@ export const INITIAL_COURSES: Course[] = [
     hoursCompleted: 30,
     totalAssignments: 6,
     completedAssignments: 1,
-    nextExamDate: '2026-01-15'
+    nextExamDate: '2026-01-15',
+    weakConcepts: ['Dynamic Programming']
   },
   {
     id: CourseId.COMPLEXITY,
@@ -38,6 +41,7 @@ export const INITIAL_COURSES: Course[] = [
     hoursCompleted: 35,
     totalAssignments: 7,
     completedAssignments: 5,
+    weakConcepts: []
   },
   {
     id: CourseId.CPP,
@@ -50,8 +54,16 @@ export const INITIAL_COURSES: Course[] = [
     hoursCompleted: 25,
     totalAssignments: 6,
     completedAssignments: 2,
+    weakConcepts: ['Pointers', 'Memory Management']
   }
 ];
+
+// Helper to get a date X days ago
+const daysAgo = (days: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() - days);
+    return d.toISOString();
+};
 
 export const INITIAL_ASSIGNMENTS: Assignment[] = [
   {
@@ -61,6 +73,8 @@ export const INITIAL_ASSIGNMENTS: Assignment[] = [
     dueDate: '2025-11-10T23:59:00',
     estimatedHours: 12,
     status: AssignmentStatus.COMPLETED,
+    createdAt: daysAgo(20),
+    startedAt: daysAgo(15) // Started 5 days after creation
   },
   {
     id: '2',
@@ -69,6 +83,8 @@ export const INITIAL_ASSIGNMENTS: Assignment[] = [
     dueDate: '2025-11-15T23:59:00',
     estimatedHours: 15,
     status: AssignmentStatus.IN_PROGRESS,
+    createdAt: daysAgo(14),
+    startedAt: daysAgo(1) // Started 13 days after creation (Procrastinated!)
   },
   {
     id: '3',
@@ -77,6 +93,7 @@ export const INITIAL_ASSIGNMENTS: Assignment[] = [
     dueDate: '2025-11-18T23:59:00',
     estimatedHours: 8,
     status: AssignmentStatus.NOT_STARTED,
+    createdAt: daysAgo(10)
   },
   {
     id: '4',
@@ -85,6 +102,7 @@ export const INITIAL_ASSIGNMENTS: Assignment[] = [
     dueDate: '2025-11-25T23:59:00',
     estimatedHours: 10,
     status: AssignmentStatus.NOT_STARTED,
+    createdAt: daysAgo(5)
   },
   {
     id: '5',
@@ -93,6 +111,7 @@ export const INITIAL_ASSIGNMENTS: Assignment[] = [
     dueDate: '2025-12-01T23:59:00',
     estimatedHours: 14,
     status: AssignmentStatus.NOT_STARTED,
+    createdAt: daysAgo(2)
   }
 ];
 
@@ -102,21 +121,40 @@ export const INITIAL_SESSIONS: StudySession[] = [
     courseId: CourseId.ALGEBRA,
     startTime: '2025-11-01T10:00:00',
     durationSeconds: 3600,
-    date: '2025-11-01'
+    date: '2025-11-01',
+    topic: 'Vector Spaces Review',
+    difficulty: 3,
+    notes: 'Good progress'
   },
   {
     id: 's2',
     courseId: CourseId.ALGORITHMS,
     startTime: '2025-11-02T14:00:00',
     durationSeconds: 7200,
-    date: '2025-11-02'
+    date: '2025-11-02',
+    topic: 'BFS Implementation',
+    difficulty: 2,
+    notes: 'Easy implementation'
   },
   {
     id: 's3',
     courseId: CourseId.ALGEBRA,
     startTime: '2025-11-03T09:00:00',
     durationSeconds: 5400,
-    date: '2025-11-03'
+    date: '2025-11-03',
+    topic: 'Eigenvalues',
+    difficulty: 5,
+    notes: 'Very abstract, need more examples'
+  },
+  {
+    id: 's4',
+    courseId: CourseId.COMPLEXITY,
+    startTime: '2025-11-04T11:00:00',
+    durationSeconds: 4500,
+    date: '2025-11-04',
+    topic: 'Turing Machines',
+    difficulty: 4,
+    notes: 'Confusing logic'
   }
 ];
 

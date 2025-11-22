@@ -49,7 +49,8 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
       dueDate: newAssignment.dueDate,
       estimatedHours: newAssignment.estimatedHours || 5,
       status: AssignmentStatus.NOT_STARTED,
-      notes: ''
+      notes: '',
+      createdAt: new Date().toISOString()
     };
 
     onAddAssignment(assignment);
@@ -122,7 +123,7 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
         model: 'gemini-2.5-flash',
         contents: prompt,
       });
-      setFeedback(response.text);
+      setFeedback(response.text || '');
     } catch (error) {
       console.error("Grading error:", error);
       setFeedback("Sorry, I encountered an error while grading. Please try again.");

@@ -8,21 +8,29 @@ interface AnalyticsProps {
   sessions: StudySession[];
 }
 
+// Hex mapping for Tailwind colors used in constants.ts
+const COLORS: Record<string, string> = {
+  'bg-blue-500': '#3b82f6',
+  'bg-orange-500': '#f97316',
+  'bg-emerald-500': '#10b981',
+  'bg-purple-500': '#a855f7',
+  'bg-red-500': '#ef4444',
+  'bg-yellow-400': '#facc15',
+  'bg-gray-600': '#4b5563',
+  'bg-indigo-500': '#6366f1',
+  'bg-pink-500': '#ec4899',
+  'bg-teal-500': '#14b8a6',
+  'bg-green-900': '#14532d'
+};
+
 export const Analytics: React.FC<AnalyticsProps> = ({ courses, sessions }) => {
   // Prepare data for Course Distribution Pie Chart
   const pieData = courses.map(c => ({
     name: c.name,
     value: c.hoursCompleted,
-    color: c.color.replace('bg-', 'var(--color-') 
+    // Use hex color from map or fallback to gray
+    color: COLORS[c.color] || '#6b7280'
   }));
-
-  // Explicit colors for Dark Mode charts
-  const COLORS = {
-    'bg-blue-500': '#3b82f6',
-    'bg-orange-500': '#f97316',
-    'bg-emerald-500': '#10b981',
-    'bg-purple-500': '#a855f7'
-  };
 
   const weeklyData = [
     { name: 'Week 1', hours: 15, target: 21 },
@@ -79,8 +87,8 @@ export const Analytics: React.FC<AnalyticsProps> = ({ courses, sessions }) => {
                   stroke="#000"
                   strokeWidth={2}
                 >
-                  {courses.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[entry.color as keyof typeof COLORS]} />
+                  {pieData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
                 <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '2px solid #000', color: '#fff', borderRadius: '0px', boxShadow: '4px 4px 0px 0px #000' }} />
@@ -88,9 +96,9 @@ export const Analytics: React.FC<AnalyticsProps> = ({ courses, sessions }) => {
             </ResponsiveContainer>
           </div>
           <div className="flex flex-wrap justify-center gap-3 mt-4">
-            {courses.map(c => (
+            {courses.map((c, i) => (
               <div key={c.id} className="flex items-center text-xs text-gray-300 font-bold font-mono bg-gray-800 px-2 py-1 border border-black shadow-[2px_2px_0px_0px_#000]">
-                <div className={`w-3 h-3 ${c.color} mr-2 border border-black`}></div>
+                <div className="w-3 h-3 mr-2 border border-black" style={{ backgroundColor: pieData[i].color }}></div>
                 {c.name}
               </div>
             ))}
@@ -102,13 +110,15 @@ export const Analytics: React.FC<AnalyticsProps> = ({ courses, sessions }) => {
       <div className="retro-card p-6">
         <h3 className="text-lg font-bold text-white mb-6 font-mono uppercase border-b-2 border-black pb-2">Course Breakdown</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {courses.map(course => {
+            {courses.map((course, idx) => {
                 const percentage = Math.min(100, Math.round((course.hoursCompleted / course.totalHoursTarget) * 100));
+                const barColor = COLORS[course.color] || '#6b7280';
+                
                 return (
                     <div key={course.id} className="bg-gray-800 p-4 border-2 border-black shadow-[4px_4px_0px_0px_#000] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all">
                         <div className="flex justify-between items-center mb-3">
                             <div className="flex items-center gap-2">
-                                <span className={`w-4 h-4 border border-black ${course.color}`}></span>
+                                <span className="w-4 h-4 border border-black" style={{ backgroundColor: barColor }}></span>
                                 <span className="font-bold text-white font-mono">{course.name}</span>
                             </div>
                             <span className="text-xs font-bold font-mono text-gray-400">{course.hoursCompleted}/{course.totalHoursTarget} HRS</span>
@@ -116,8 +126,8 @@ export const Analytics: React.FC<AnalyticsProps> = ({ courses, sessions }) => {
                         
                         <div className="w-full bg-gray-700 h-4 border-2 border-black mb-3">
                             <div 
-                                className={`h-full ${course.color} border-r-2 border-black transition-all duration-1000 ease-out`} 
-                                style={{ width: `${percentage}%` }}
+                                className="h-full border-r-2 border-black transition-all duration-1000 ease-out"
+                                style={{ width: `${percentage}%`, backgroundColor: barColor }}
                             ></div>
                         </div>
                         

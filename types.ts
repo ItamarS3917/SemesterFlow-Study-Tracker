@@ -27,6 +27,7 @@ export interface Course {
   completedAssignments: number;
   nextExamDate?: string; // ISO Date string
   knowledge?: string; // User provided context/syllabus/notes
+  weakConcepts?: string[]; // Concepts the student struggles with
 }
 
 export interface Assignment {
@@ -37,6 +38,8 @@ export interface Assignment {
   estimatedHours: number;
   status: AssignmentStatus;
   notes?: string;
+  createdAt: string; // ISO Date string (When the assignment was assigned/added)
+  startedAt?: string; // ISO Date string (When work actually began)
 }
 
 export interface StudySession {
@@ -46,6 +49,8 @@ export interface StudySession {
   durationSeconds: number;
   notes?: string;
   date: string; // YYYY-MM-DD
+  topic?: string;
+  difficulty?: number; // 1-5 (1=Easy, 5=Hard)
 }
 
 export interface PlannedSession {
@@ -74,4 +79,7 @@ export interface UserStats {
   phaseProgress: number;
 }
 
-export type ViewState = 'DASHBOARD' | 'ASSIGNMENTS' | 'COURSES' | 'ANALYTICS' | 'TIMER' | 'SETTINGS' | 'PLANNER';
+export type ViewState = 'DASHBOARD' | 'ASSIGNMENTS' | 'COURSES' | 'ANALYTICS' | 'TIMER' | 'SETTINGS' | 'PLANNER' | 'STUDY_PARTNER';
+
+export type TeacherPersonality = 'STRICT' | 'ENCOURAGING' | 'HUMOROUS' | 'SOCRATIC';
+export type StudyMode = 'GUIDED_LEARNING' | 'QUIZ_ME';

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Play, Pause, Clock, Check, HardDrive, AlertCircle } from 'lucide-react';
 import { Course, CourseId } from '../types';
@@ -5,17 +6,30 @@ import { Course, CourseId } from '../types';
 interface StudyTimerProps {
   courses: Course[];
   onSaveSession: (courseId: CourseId, durationSeconds: number, notes: string, addToKnowledge: boolean) => void;
+  initialTopic?: string;
+  initialCourseId?: string;
 }
 
-export const StudyTimer: React.FC<StudyTimerProps> = ({ courses, onSaveSession }) => {
+export const StudyTimer: React.FC<StudyTimerProps> = ({ 
+  courses, 
+  onSaveSession,
+  initialTopic = '',
+  initialCourseId
+}) => {
   const [isActive, setIsActive] = useState(false);
   const [seconds, setSeconds] = useState(0);
-  const [selectedCourseId, setSelectedCourseId] = useState<CourseId>(courses[0]?.id || '');
+  const [selectedCourseId, setSelectedCourseId] = useState<CourseId>(initialCourseId || courses[0]?.id || '');
   
   // Report State
-  const [topic, setTopic] = useState('');
+  const [topic, setTopic] = useState(initialTopic);
   const [notes, setNotes] = useState('');
   const [addToKnowledge, setAddToKnowledge] = useState(false);
+
+  // Effect to handle incoming "Break Pattern" requests (props change)
+  useEffect(() => {
+    if (initialCourseId) setSelectedCourseId(initialCourseId);
+    if (initialTopic) setTopic(initialTopic);
+  }, [initialCourseId, initialTopic]);
 
   useEffect(() => {
     let interval: number | undefined;
@@ -113,6 +127,15 @@ export const StudyTimer: React.FC<StudyTimerProps> = ({ courses, onSaveSession }
             {isActive ? '>>> SEQUENCE RUNNING >>>' : '/// SEQUENCE TERMINATED ///'}
         </div>
       </div>
+      
+      {/* Break Pattern Hint */}
+      {initialTopic && !isActive && seconds === 0 && (
+         <div className="mb-6 bg-yellow-400/10 border border-yellow-400/30 p-3 text-center animate-pulse">
+            <p className="text-xs font-bold text-yellow-400 font-mono uppercase">
+               MICRO-SPRINT READY: Just hit play for 5 minutes.
+            </p>
+         </div>
+      )}
 
       {/* Playback Controls */}
       {seconds === 0 || isActive ? (
